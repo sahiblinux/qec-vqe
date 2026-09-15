@@ -1,0 +1,32 @@
+# This CITATION.cff file was generated with the help of the CITATION.cff format.
+# Learn more about it at https://citation-file-format.github.io/
+cff-version: 1.2.0
+title: qec-vqe — Hardware-aware quantum error correction and noise mitigation for NISQ-era VQE
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Sahibjot
+    family-names: Singh
+    email: sahibjot.singh@example.com   # TODO: replace with your preferred public email before pushing
+identifiers:
+  - description: Zenodo archive DOI (add after first Zenodo release)
+    type: doi
+    value: "10.5281/zenodo.XXXXXXX"     # TODO: replace after Zenodo minting
+repository-code: "https://github.com/YOUR-USERNAME/qec-vqe"   # TODO: replace after GitHub push
+abstract: >-
+  A tested Python framework for controlled bias-variance comparison of quantum
+  error-mitigation stacks (zero-noise extrapolation, readout mitigation) and
+  repetition-code error correction in NISQ-era variational quantum eigensolver
+  simulations, with fully reproducible benchmarks.
+keywords:
+  - quantum computing
+  - quantum error mitigation
+  - zero-noise extrapolation
+  - readout mitigation
+  - quantum error correction
+  - variational quantum eigensolver
+license: MIT
+version: 0.1.0
+date-released: "2026-09-15"

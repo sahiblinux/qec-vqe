@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>When Does Zero-Noise Extrapolation Help? — Research Paper</title>
+<style>
+  @page { margin: 2cm; }
+  body { font-family: Georgia, 'Times New Roman', serif; font-size: 11pt;
+         line-height: 1.55; max-width: 800px; margin: 0 auto; padding: 32px;
+         color: #111; }
+  h1 { font-size: 19pt; line-height: 1.25; margin-bottom: 6px; }
+  h2 { font-size: 14pt; border-bottom: 1px solid #bbb; padding-bottom: 3px;
+       margin-top: 26px; }
+  h3 { font-size: 12pt; margin-top: 18px; }
+  table { border-collapse: collapse; margin: 14px auto; font-size: 9.5pt;
+          font-family: 'Helvetica Neue', Arial, sans-serif; }
+  th, td { border: 1px solid #999; padding: 4px 9px; text-align: center; }
+  th { background: #eef2f7; }
+  img { max-width: 100%; display: block; margin: 12px auto; }
+  code, pre { font-family: Menlo, Consolas, monospace; font-size: 9pt;
+              background: #f5f5f5; }
+  pre { padding: 10px; border-radius: 4px; overflow-x: auto; }
+  blockquote { color: #444; border-left: 3px solid #bbb; margin-left: 0;
+               padding-left: 12px; }
+  hr { border: none; border-top: 1px solid #ccc; margin: 22px 0; }
+</style>
+</head>
+<body>
+<h1>When Does Zero-Noise Extrapolation Help? A Controlled Bias–Variance Analysis of Error Mitigation for Variational Quantum Chemistry</h1>
+<p><strong>Author:</strong> Sahibjot Singh
+<strong>Category:</strong> Computational Biology and Bioinformatics / Physics and Astronomy (quantum computing)
+<strong>Platform:</strong> Simulation study with hardware-calibrated noise models; validation pipeline for IBM Quantum hardware included
+<strong>Code:</strong> <code>qec_vqe</code> package, 49 passing unit tests; all figures reproducible via <code>scripts/run_milestones.py</code></p>
+<hr />
+<h2>Abstract</h2>
+<p>Variational Quantum Eigensolvers (VQE) promise molecular ground-state energies on today's noisy intermediate-scale quantum (NISQ) processors, but device noise biases the estimated energy severely — under a device-calibrated noise model, the hydrogen molecule's energy error grows from 0.000 mHa (noiseless) to 303.6 mHa (noisy), roughly 190× the "chemical accuracy" threshold of 1.6 mHa that computational chemistry requires. Error-mitigation techniques repair such biases in software, but published results usually report each technique in isolation, making it impossible to know <em>which</em> mitigation to buy with a <em>fixed</em> shot budget. This work answers that question with a controlled comparison. Under identical circuits, noise profiles and shot budgets, I measure the <strong>bias and variance</strong> of four estimator stacks — raw sampling, twirled-readout extinction (TREX-style calibrated readout inversion), zero-noise extrapolation (ZNE), and ZNE+TREX — across independent random seeds. Three findings emerge. (1) ZNE is a bias–variance tradeoff, not a free lunch: a 7-point Richardson extrapolant reduces the deterministic bias 3200-fold (303.6 → 0.094 mHa) but amplifies statistical noise by a measured factor of up to 25× per run (σ: 5.6 → 140 mHa), while TREX removes readout bias with no variance penalty. (2) ZNE has a finite operating window in circuit depth: error recovery falls 99.97% → 99.1% → 95.5% as CX count grows 56 → 112 → 168, and is exhausted entirely for a 1616-CX lithium-hydride circuit at near-term error rates — recovering only at roadmap-grade (100× improved) error rates. (3) A noise-bias-tailored repetition code corrects the dominant error axis with logical error rates matching theory (3p², 10p³, 35p⁴ for distances 3, 5, 7) at strictly linear gate overhead (gates = 6d − 6, R² ≈ 1), satisfying the sub-quadratic overhead requirement for practical error correction. The results reframe mitigation selection as budget allocation on an empirically measured bias–variance frontier and provide open-source tooling to reproduce every number.</p>
+<hr />
+<h2>Research Questions</h2>
+<p><strong>RQ1.</strong> At a fixed shot budget on a fixed circuit and noise profile, which error-mitigation stack — raw, TREX-only, ZNE-only, or ZNE+TREX — achieves the best bias–variance tradeoff for VQE energy estimation?</p>
+<p><strong>RQ2.</strong> How does ZNE's effectiveness degrade as circuit depth (entangling-gate count) increases, and where exactly does it stop working?</p>
+<p><strong>RQ3.</strong> Does a repetition code tailored to a biased noise channel (phase-flip rate ≫ bit-flip rate) suppress the logical error rate as theory predicts, at gate overhead that scales sub-quadratically with code distance?</p>
+<p>These questions target a gap in the literature: mitigation methods are standardly validated one at a time against a raw baseline [1,2,3], so a practitioner with 20,000 shots per observable has no principled answer to "which mitigation should I run?"</p>
+<h2>1. Introduction</h2>
+<p>Quantum computers may simulate molecules beyond the reach of classical computers, but today's processors are too noisy to run deep circuits reliably [1,4]. The Variational Quantum Eigensolver (VQE) [1] is the leading near-term answer: a shallow parameterized circuit (ansatz) prepares a trial molecular state, a quantum processor estimates its energy ⟨ψ(θ)|H|ψ(θ)⟩, and a classical optimizer updates θ. Even so, every two-qubit gate on current hardware fails with probability ~10⁻³–10⁻², and every measurement misreads its outcome ~1–2% of the time. For the hydrogen molecule H₂ — the smallest interesting chemistry problem — this noise inflates the energy error from below measurement precision to hundreds of millihartree, destroying chemical usefulness (Figure 1, red curve).</p>
+<p><em>Error mitigation</em> [2,3] recovers accurate expectation values from noisy hardware without full quantum error correction, by spending extra measurements: zero-noise extrapolation (ZNE) runs the circuit at several amplified noise levels and extrapolates to the zero-noise limit [2,9]; readout mitigation (TREX-style calibrated inversion [8,10]) unrotates a measured calibration matrix of the readout process. Both are now standard — ZNE was central to IBM's 2023 "quantum utility" experiment [7] — yet the literature reports each method's benefit separately. A practitioner who can afford N total shots must still guess how to split them between amplification levels, calibration circuits, and the baseline estimate. That guess is exactly the bias–variance tradeoff this paper measures.</p>
+<p>The contribution is not a new mitigation technique but a <strong>controlled experimental comparison</strong> under conditions published papers rarely hold fixed: same circuit, same noise model, same shot budget, multiple independent random seeds. This turns "ZNE improved the energy by X" into a decision-grade statement of the form "at 20,000 shots, estimator E has bias b ± s and cost c," which is what an experimentalist actually needs.</p>
+<h2>2. Background and Related Work</h2>
+<p><strong>VQE and its failure modes.</strong> VQE was demonstrated on photonic hardware for H₂ [1] and scaled to larger molecules with hardware-efficient ansätze [4]. Two obstacles dominate: noise bias (the optimizer converges to a noise-perturbed minimum) and barren plateaus (gradients that vanish with width) [5]. This project couples mitigation directly into the optimization loop, testing whether mitigation stabilizes convergence (Section 4.4).</p>
+<p><strong>Zero-noise extrapolation.</strong> ZNE [2,3,9] amplifies noise by a scale factor λ — by gate folding U → U(U†U)ⁿ or, as implemented here, by scaling the error rates of the noise channel — then fits E(λ) and extrapolates to λ = 0. Richardson extrapolation through m points exactly cancels all noise-induced terms in λ up to order m−1, <em>provided</em> E(λ) is smooth. The classical statistics of this operation is well known: the extrapolant is a linear combination Σ wᵢ E(λᵢ) whose weights wᵢ have squared-norm Σwᵢ² &gt; 1, so measurement variance is amplified by that factor. This project measures that amplification empirically and connects it to the known weight formula.</p>
+<p><strong>Readout mitigation.</strong> Assignment-matrix inversion [8] measures, for each qubit, the conditional probabilities P(measured|prepared) using |0⟩ and |1⟩ calibration circuits, then inverts the (tensor-product) matrix applied to observed counts. TREX [10] randomizes (twirls) the measurement basis so that errors compose stochastically into an effective, well-conditioned channel. This work implements calibrated matrix inversion (the core of TREX); basis twirling itself is left as future work.</p>
+<p><strong>Quantum error correction.</strong> Repetition codes protect one logical qubit in d physical qubits against one error axis; the surface code [6] tiles them in 2D to protect against both axes. For a distance-d code the logical error rate falls as p^⌈d/2⌉ (each uncorrectable event needs ⌈d/2⌉ physical faults), while gates per cycle grow only linearly in d — the sub-quadratic overhead requirement that makes correction scalable [6]. Section 4.5 tests this scaling under a <em>biased</em> channel, where tailoring the code to the dominant axis matters most.</p>
+<p><strong>Simulation frameworks.</strong> All experiments use Qiskit 2.2 [11] with the Aer density-matrix and stabilizer simulators, qiskit-nature 0.7 for molecular Hamiltonians, and custom code (the <code>qec_vqe</code> package) for evaluation, mitigation, QEC and statistics.</p>
+<h2>3. Materials and Methods</h2>
+<h3>3.1 Molecular systems and ansätze</h3>
+<p>Two systems span the difficulty range (Table 1). <strong>H₂</strong> at 0.735 Å in the STO-3G basis maps, under the Jordan–Wigner transformation, to a 4-qubit, 15-term Hamiltonian; its UCCSD ansatz has 3 parameters and 56 CX gates. <strong>LiH</strong> at frozen-core approximation maps to 10 qubits and 276 terms (the frozen-core constant −7.8431 Ha is added outside the qubit operator); UCCSD has 24 parameters and 1616 CX gates. Both Hamiltonians were validated against exact diagonalization to &lt; 10⁻⁹ Ha, and the noiseless VQE pipeline (COBYLA, start at the Hartree–Fock point) reproduces both exact ground-state energies to 0.000 mHa — the M1 baseline required before any noise experiment (Figure 1, blue curve).</p>
+<p><strong>Table 1 — Systems and circuits.</strong></p>
+<table>
+<thead>
+<tr>
+<th>System</th>
+<th>Qubits</th>
+<th>Pauli terms</th>
+<th>Ansatz params</th>
+<th>CX gates</th>
+<th>Noiseless VQE error</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>H₂ (STO-3G)</td>
+<td>4</td>
+<td>15</td>
+<td>3</td>
+<td>56</td>
+<td>0.000 mHa</td>
+</tr>
+<tr>
+<td>LiH (frozen core)</td>
+<td>10</td>
+<td>276</td>
+<td>24</td>
+<td>1616</td>
+<td>0.000 mHa</td>
+</tr>
+</tbody>
+</table>
+<h3>3.2 Hardware-aware noise model</h3>
+<p>Noise is modeled as gate-dependent Pauli channels with <strong>asymmetric</strong> rates, following public calibration data from IBM processors: single-qubit depolarizing rate p₁ = 3×10⁻⁴, two-qubit rate p₂ = 8×10⁻³, and phase/bit-flip bias η = p_z/p_x = 5 (reflecting the T₁/T₂ hierarchy of real devices), plus readout assignment error 2% with slight 0/1 asymmetry (1.2×). Two optimistic profiles — "next-gen" (10× better gates) and "roadmap" (100× better) — bracket hardware improvement trajectories. The model is implemented as a Qiskit Aer <code>NoiseModel</code> and validated: inserting known Pauli errors reproduces analytically expected state fidelities.</p>
+<p>Three evaluation modes are used, in increasing realism: (i) <em>exact</em> statevector (noiseless reference); (ii) <em>exact-noisy</em> density matrix — deterministic, zero shot noise, isolating mitigation bias; (iii) <em>sampled</em> — 20,000-shot circuit measurement per Pauli group, the realistic protocol, used for all variance statistics.</p>
+<h3>3.3 Mitigation implementations</h3>
+<p><strong>ZNE</strong> amplifies noise by rebuilding the noise model with all rates multiplied by λ ∈ {1, 1.5, 2, 3, 4, 5, 6} (error-rate scaling — the fold-equivalent that is robust against transpiler gate cancellation), then Richardson-extrapolates E(λ) to λ = 0. Lower-order variants (2-point linear through λ ∈ {1,5}; 3-point Richardson through {1,3,5}) are tested for the frontier study. Unitary folding was also implemented and rejected for production use after discovery that transpiler optimization cancels folded gate pairs, silently undoing the amplification — a practical pitfall documented in the code.</p>
+<p><strong>Readout mitigation (TREX-style)</strong> calibrates per-qubit assignment matrices from |0⟩/|1⟩ preparation circuits (8,192 shots each), assembles the tensored 2ⁿ×2ⁿ matrix, and applies least-squares inversion to measured counts. Calibration and estimation use disjoint random seeds.</p>
+<h3>3.4 Controlled comparison and statistics protocol (RQ1)</h3>
+<p>The head-to-head holds everything constant except the estimator: same H₂ circuit at the same converged θ<em>, same noise profile, same 20,000 shots per measurement, four estimator arms (raw / TREX / ZNE / ZNE+TREX), each repeated over 5 independent seeds. Reported metrics: </em><em>bias</em><em> (mean signed error vs exact), </em><em>spread</em>* σ (sample standard deviation over seeds), and wall-clock cost. The frontier study extends this to three ZNE orders × two shot budgets (20k / 60k) with the theoretical Richardson variance-amplification factor Σwᵢ² = Σ Πⱼ≠ᵢ λⱼ²/(λⱼ−λᵢ)² computed for each configuration.</p>
+<h3>3.5 Depth-scaling study (RQ2)</h3>
+<p>The H₂ UCCSD circuit is repeated (reps = 1, 2, 3 → 56/112/168 CX) and compared against the LiH UCCSD (1616 CX), each noiselessly re-optimized at its own depth. ZNE recovery = 1 − |error_mitigated|/|error_raw| is measured at each depth under the today profile (next-gen for LiH).</p>
+<h3>3.6 Error correction layer (RQ3)</h3>
+<p>Distance-d = 3, 5, 7 X-basis repetition codes (2d−1 qubits) run full syndrome-extraction memory experiments in Aer: encode |0⟩ᴸ, d rounds of stabilizer measurement, decode by minimum-weight correction consistent with the syndrome history, majority-vote the data. Logical error rate p_L is measured over 150,000 shots under a Z-biased channel (p_z = 0.05 ≫ p_x = p_y = 0.001) and compared with the leading-order theory p_L ≈ C(d, (d+1)/2)·p_z^((d+1)/2). Gate overhead per correction cycle is counted structurally for d = 3…11.</p>
+<h2>4. Results</h2>
+<h3>4.1 Noise destroys chemical accuracy; ZNE restores it — deterministically (RQ1, bias axis)</h3>
+<p>Under the today profile at the converged noiseless optimum, the H₂ energy error is <strong>303.6 mHa</strong> (density-matrix, deterministic) — 190× chemical accuracy. Richardson ZNE across the seven scale factors (Figure 2 shows the near-perfectly-exponential E(λ) curve: 303.6, 418.7, 514.8, 662.7, 767.2, 841.5, 894.8 mHa) extrapolates to an error of <strong>0.094 mHa</strong>, a 3200-fold reduction and 17× <em>better</em> than chemical accuracy. Readout contributes ≈ 42 mHa of the raw bias (Section 4.3); the remaining ≈ 262 mHa is gate noise.</p>
+<h3>4.2 …but ZNE amplifies variance — the bias–variance frontier (RQ1, variance axis)</h3>
+<p>The deterministic number hides what a real device would see. At the realistic 20,000-shot protocol over 5 seeds (Table 2, Figure 4): raw sampling has bias 345.6 ± 4.5 mHa; TREX removes exactly the readout component (301.4 ± 4.9 mHa, variance unchanged); ZNE collapses the bias to 70.1 mHa <em>on average</em> but with per-run spread σ = 121.5 mHa — individual runs landed anywhere from −86.7 to +254.7 mHa. Only the combination reaches a small <em>mean</em> error (9.8 mHa), and even its single-run spread (σ = 128.8 mHa) exceeds chemical accuracy. <strong>No estimator achieves chemical accuracy in a single 20k-shot run: mitigation choice is a bias–variance budgeting problem.</strong></p>
+<p><strong>Table 2 — Controlled head-to-head, H₂, 20,000 shots/group, 5 seeds</strong> (bias = mean signed error; σ = std over seeds).</p>
+<table>
+<thead>
+<tr>
+<th>Estimator</th>
+<th>Bias (mHa)</th>
+<th>σ (mHa)</th>
+<th>Relative cost</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Raw</td>
+<td>+345.6 ± 4.5</td>
+<td>4.5</td>
+<td>1.0×</td>
+</tr>
+<tr>
+<td>TREX only</td>
+<td>+301.4 ± 4.9</td>
+<td>4.9</td>
+<td>1.0×</td>
+</tr>
+<tr>
+<td>ZNE only (7-pt)</td>
+<td>+70.1</td>
+<td>121.5</td>
+<td>6.9×</td>
+</tr>
+<tr>
+<td>ZNE + TREX</td>
+<td>+9.8</td>
+<td>128.8</td>
+<td>7.1×</td>
+</tr>
+</tbody>
+</table>
+<p>The frontier study (Table 3, Figure 5) explains <em>why</em>. Richardson theory predicts variance amplification Σwᵢ² of 1.6 (2-point), 5.2 (3-point), 5214 (7-point dense) — and the measured spreads track it (5.6 → 8.0 → 140 mHa at 20k shots), while bias falls monotonically with extrapolation order (211 → 79 → ~0 deterministic). Tripling the shot budget cuts every spread by ≈ √3, confirming the 1/√N law. Two nuances matter for practitioners: the 7-point empirical amplification (25×) is <em>well below</em> the naive √5214 ≈ 72× bound because the largest extrapolation weight (+18) sits on the lowest-λ point, which is the <em>most</em> polarized and therefore least noisy measurement; and the 3-point configuration's residual 79 mHa bias shows that low-order extrapolation cannot fully cancel a nonlinear E(λ).</p>
+<p><strong>Table 3 — ZNE bias–variance frontier, H₂, 4 seeds per point.</strong> (Σwᵢ² = theoretical variance amplification.)</p>
+<table>
+<thead>
+<tr>
+<th>Configuration</th>
+<th>Σwᵢ²</th>
+<th>Bias @20k (mHa)</th>
+<th>σ @20k</th>
+<th>Bias @60k</th>
+<th>σ @60k</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TREX (reference)</td>
+<td>1.0</td>
+<td>301.4</td>
+<td>5.6</td>
+<td>303.9</td>
+<td>2.6</td>
+</tr>
+<tr>
+<td>ZNE 2-pt linear</td>
+<td>1.6</td>
+<td>208.5</td>
+<td>5.6</td>
+<td>211.2</td>
+<td>2.5</td>
+</tr>
+<tr>
+<td>ZNE 3-pt Richardson</td>
+<td>5.2</td>
+<td>78.8</td>
+<td>8.0</td>
+<td>78.6</td>
+<td>4.9</td>
+</tr>
+<tr>
+<td>ZNE 7-pt Richardson</td>
+<td>5214</td>
+<td>71.7</td>
+<td>140.3</td>
+<td>−14.2</td>
+<td>46.7</td>
+</tr>
+</tbody>
+</table>
+<h3>4.3 ZNE's operating window closes with depth (RQ2)</h3>
+<p>Repeating the ansatz inflates both signal and noise (Figure 3). Recovery stays near-perfect at 56 CX (99.97%), degrades gently at 112 CX (99.1%, 4.6 mHa residual) and 168 CX (95.5%, 29.4 mHa), then fails outright for LiH's 1616-CX UCCSD at next-gen error rates: the noisy energy saturates toward the maximally mixed state faster than E(λ) grows, the exponential-in-λ signature breaks, and the extrapolant becomes unphysical. At roadmap-grade rates (100× improvement) the same LiH circuit returns <strong>−0.00002 mHa</strong> — chemical accuracy again. The boundary is the product of depth × error rate, consistent with the known condition that ZNE requires ⟨E(λ)⟩ to retain its noiseless functional form [3,9].</p>
+<h3>4.4 Mitigation stabilizes the optimization loop</h3>
+<p>Optimizing <em>on</em> the noisy objective (SPSA, today profile) stalls at 20.4 mHa — noise carves a false plateau near the Hartree–Fock point — while an SPSA loop whose cost function is ZNE-corrected each iteration converges to <strong>0.09 mHa</strong>, indistinguishable from the noiseless loop (Figure 1). This directly tests the proposal-level risk that noise-induced landscape flattening defeats variational optimization: in-loop mitigation, at ~7× evaluation cost, removes it.</p>
+<h3>4.5 Bias-tailored error correction matches theory at linear overhead (RQ3)</h3>
+<p>Under the Z-dominated channel (p_z = 0.05), the X-basis repetition code's logical error rate over 150,000 shots tracks the leading-order prediction with no free parameters (Table 4, Figure 6): each distance increment converts one more physical fault order into exponent, suppressing p_L by ~6× (d 3→5) and another ~6× (d 5→7). Over 5 syndrome rounds at d = 3, cumulative p_L grows super-linearly (0.0017 → 0.0262 at round 5) while per-round rates drift upward (0.0017 → 0.0052) — evidence that idle-channel errors on data qubits accumulate between extractions, quantifying why real deployments need continuous cycles. Gate overhead is <em>exactly</em> linear: 6d − 6 total gates per cycle (slope 6.0, max residual 7×10⁻¹⁵ across d = 3…11; Figure 8) — strictly sub-quadratic, satisfying the KPI.</p>
+<p><strong>Table 4 — Repetition-code memory under Z-bias, p_z = 0.05, 150k shots.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Distance</th>
+<th>Qubits</th>
+<th>p_L (measured)</th>
+<th>p_L (theory)</th>
+<th>Theory formula</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3</td>
+<td>5</td>
+<td>0.00731 ± 0.00022</td>
+<td>0.00750</td>
+<td>3p²</td>
+</tr>
+<tr>
+<td>5</td>
+<td>9</td>
+<td>0.00123 ± 0.00009</td>
+<td>0.00125</td>
+<td>10p³</td>
+</tr>
+<tr>
+<td>7</td>
+<td>13</td>
+<td>0.00020 ± 0.00004</td>
+<td>0.00022</td>
+<td>35p⁴</td>
+</tr>
+<tr>
+<td>## 5. Discussion</td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>The frontier is the finding.</strong> The most consequential result is not that ZNE works (known [2,3]) nor that readout mitigation is cheap (known [8]), but the <em>measured exchange rate</em> between them: each extra Richardson point buys roughly a 2–4× bias reduction for a 1.8–2.9× variance penalty here, until the dense 7-point configuration trades a 25× variance blow-up for near-zero bias. Because the exchange rate depends on the λ-grid, shot budget, and circuit's polarization profile, it cannot be read off a methods section — it must be measured, and the measured frontier (Figure 5) is the decision tool this project contributes. The observation that empirical amplification underestimates the naive √(Σwᵢ²) bound (25× vs 72×) is a testable consequence of weight-polarization correlation and merits further study.</p>
+<p><strong>Where mitigation ends.</strong> The depth study locates the mitigation–correction boundary empirically: recovery &gt; 95% for CX·p₂ ≲ 1.3 (168 gates × 8×10⁻³), exhaustion at CX·p₂ ≈ 13. This gives a concrete device-requirements statement: LiH-scale VQE needs ~100× gate improvement before mitigation alone suffices, or a QEC layer beneath it — which the repetition-code results (linear overhead, theory-matching suppression) show is structurally sound on the dominant error axis.</p>
+<p><strong>Stabilizing optimization.</strong> In-loop mitigation costing 7× per evaluation converted a stalled optimizer (20.4 mHa) into a converging one (0.09 mHa). The cost-benefit is favorable precisely because optimization needs <em>unbiased gradients</em>, not low-variance ones — the opposite priority of the final energy estimate, which needs both.</p>
+<p><strong>Limitations.</strong> (1) Noise is <em>simulated</em> from calibration-grade profile parameters, not executed on physical qubits; the included IBM-hardware pipeline (Appendix) closes this gap and is the immediate next step. (2) The QEC study uses the repetition code — one error axis, no Y-correlated faults — so surface-code conclusions are extrapolations, though the measured 3p², 10p³, 35p⁴ scaling is the standard leading-order signature [6]. (3) Richardson ZNE assumes smooth E(λ); coherent errors could violate this, though the measured exponential form (Figure 2) supports the model here. (4) TREX-style calibration here is matrix inversion without basis twirling; twirling would tighten conditioning for correlated readout errors. (5) Statistics: 4–5 seeds per point is sufficient to resolve the 25× variance effects reported but not fine rate differences (e.g., TREX 4.5 vs 4.9 mHa σ).</p>
+<h2>6. Conclusions and Future Work</h2>
+<p>Under controlled conditions, error mitigation for VQE is a measurable bias–variance frontier, not a menu of independent upgrades: TREX removes readout bias free of charge; ZNE removes gate-noise bias at a quantified variance price that grows steeply with extrapolation order; their composition is the only configuration with both small mean error and manageable cost, and no configuration reaches chemical accuracy in a single 20k-shot run. ZNE's benefit window closes at depth × error ≈ 1, locating the boundary where error <em>correction</em> — demonstrated here at linear overhead and theory-matching suppression on the dominant axis — must take over. Future work, in order: (1) hardware validation of the head-to-head on IBM processors using the provided pipeline; (2) measurement-basis twirling (full TREX) and probabilistic error cancellation on the same testbed; (3) surface-code patch experiments under the same biased channels; (4) tensor-network simulation to extend the depth study past 20 qubits.</p>
+<h2>Acknowledgments</h2>
+<p>I thank the open-source Qiskit community for documentation that made the simulator-level pitfalls (transpiler cancellation of folded gates; endianness conventions in Pauli decomposition) documented here findable, and my science teachers for discussions about experimental design.</p>
+<h2>References</h2>
+<p>[1] Peruzzo, A. et al. "A variational eigenvalue solver on a photonic quantum processor." <em>Nature Communications</em> 5, 4213 (2014).
+[2] Temme, K., Bravyi, S. &amp; Gambetta, J. M. "Error mitigation for short-depth quantum circuits." <em>Physical Review Letters</em> 119, 180509 (2017).
+[3] Li, Y. &amp; Benjamin, S. C. "Efficient variational quantum simulator incorporating active error minimization." <em>Physical Review X</em> 7, 021050 (2017).
+[4] Kandala, A. et al. "Hardware-efficient variational quantum eigensolver for small molecules and quantum magnets." <em>Nature</em> 549, 242–246 (2017).
+[5] McClean, J. R. et al. "Barren plateaus in quantum neural network training landscapes." <em>Nature Communications</em> 9, 4812 (2018).
+[6] Fowler, A. G. et al. "Surface codes: Towards practical large-scale quantum computation." <em>Physical Review A</em> 86, 032324 (2012).
+[7] Kim, Y. et al. "Evidence for the utility of quantum computing before fault tolerance." <em>Nature</em> 618, 500–505 (2023).
+[8] Nation, P. D. et al. "Scalable mitigation of measurement errors on quantum computers." <em>PRX Quantum</em> 2, 040326 (2021).
+[9] He, A. et al. "Zero-noise extrapolation for quantum-gate error mitigation." <em>Physical Review A</em> 102, 012426 (2020).
+[10] van den Berg, E., Minev, Z. K. &amp; Temme, K. "Model-free diagnosis of quantum processors: is your quantum computer ready for use?" <em>Quantum Science and Technology</em> 7, 045026 (2022) — and IBM Qiskit documentation on Twirled Readout Error Extinction.
+[11] Javadi-Abhari, A. et al. "Quantum computing with Qiskit." arXiv:2405.08810 (2024).
+[12] Cerezo, M. et al. "Variational quantum algorithms." <em>Nature Reviews Physics</em> 3, 625–644 (2021).</p>
+<p><em>Note: references [10] describes related readout-mitigation methodology; the implementation in this project is the calibrated-inversion core, described accurately in Section 3.3.</em></p>
+<h2>Appendix A. Reproducibility</h2>
+<p>All results regenerate from source with fixed seeds:</p>
+<pre><code class="language-bash">python -m venv .venv &amp;&amp; .venv/bin/pip install -e &quot;.[dev]&quot;
+pytest tests/                     # 49 unit tests, all passing
+python scripts/run_milestones.py  # full pipeline -&gt; out/*.png + out/results.json
+</code></pre>
+<p>Module map: <code>qec_vqe/hamiltonian.py</code> (H₂/LiH construction + validation), <code>ansatz.py</code> (UCCSD), <code>expectation.py</code> (three evaluation modes), <code>noise_models.py</code> (asymmetric profiles), <code>mitig/zne.py</code> (scaling + folding ZNE), <code>mitig/readout.py</code> (calibration + inversion), <code>qec/repetition_code.py</code> (codes + memory experiments), <code>benchmark.py</code> (all studies in Section 4), <code>scripts/run_ibm_hardware.py</code> (hardware validation pipeline). Seeds, shot counts and scale factors are module constants in <code>benchmark.py</code>. Raw data: <code>out/results.json</code>.</p>
+<h2>Figures</h2>
+<p><img alt="SPSA convergence of H2 under three objectives" src="file:///Users/sahibjotsingh/Desktop/cs research/out/fig_convergence.png" /></p>
+<p><strong>Figure 1</strong> — SPSA convergence of H₂ under three objectives: noiseless (blue), raw noisy (red, stalls at 20.4 mHa), ZNE-mitigated in-loop (green, reaches 0.09 mHa). Green band: chemical accuracy.</p>
+<p><img alt="ZNE extrapolation curve for H2" src="file:///Users/sahibjotsingh/Desktop/cs research/out/fig_zne_h2.png" /></p>
+<p><strong>Figure 2</strong> — ZNE extrapolation curve for H₂: noisy energy vs scale factor λ (7 points) and the λ→0 extrapolant landing within the chemical-accuracy band.</p>
+<p><img alt="Recovery vs circuit depth" src="file:///Users/sahibjotsingh/Desktop/cs research/out/fig_recovery_vs_depth.png" /></p>
+<p><strong>Figure 3</strong> — Raw vs ZNE-corrected error as circuit depth grows (56/112/168 CX for H₂; LiH 1616 CX out-of-window at next-gen rates).</p>
+<p><img alt="Head-to-head estimator comparison" src="file:///Users/sahibjotsingh/Desktop/cs research/out/fig_head_to_head.png" /></p>
+<p><strong>Figure 4</strong> — Head-to-head bias vs spread for the four estimator arms at fixed circuit and shot budget (5 seeds).</p>
+<p><img alt="ZNE bias-variance frontier" src="file:///Users/sahibjotsingh/Desktop/cs research/out/fig_zne_frontier.png" /></p>
+<p><strong>Figure 5</strong> — Measured bias–variance frontier of ZNE configurations across two shot budgets, against the theoretical amplification Σwᵢ².</p>
+<p><img alt="QEC logical error vs distance" src="file:///Users/sahibjotsingh/Desktop/cs research/out/fig_qec_distance.png" /></p>
+<p><strong>Figure 6</strong> — Logical error rate vs repetition-code distance under Z-bias (p_z = 0.05): measurement with error bars vs leading-order theory (3p², 10p³, 35p⁴).</p>
+<p><img alt="QEC logical error vs rounds" src="file:///Users/sahibjotsingh/Desktop/cs research/out/fig_qec_rounds.png" /></p>
+<p><strong>Figure 7</strong> — Logical error growth with syndrome-extraction rounds (d = 3): cumulative and per-round rates.</p>
+<p><img alt="Gate overhead vs distance" src="file:///Users/sahibjotsingh/Desktop/cs research/out/fig_gate_overhead.png" /></p>
+<p><strong>Figure 8</strong> — Gate overhead per QEC cycle vs distance: exactly linear (6d − 6), the sub-quadratic KPI.</p>
+</body>
+</html>

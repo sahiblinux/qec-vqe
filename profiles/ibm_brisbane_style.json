@@ -1,0 +1,12 @@
+{
+  "name": "ibm_brisbane_style",
+  "basis_gates": ["id", "rz", "x", "sx", "cx"],
+  "single_qubit_error_rate": 3.0e-4,
+  "two_qubit_error_rate": 8.0e-3,
+  "bias_eta": 5.0,
+  "readout_error": 0.02,
+  "readout_asymmetry": 1.2,
+  "t1_us": 300.0,
+  "t2_us": 120.0,
+  "description": "Generic NISQ-era profile modeled on public IBM Eagle/Heron calibration data: CX ~8e-3, single-qubit ~3e-4, phase-flip bias eta=5 (T2 < 2*T1), readout ~2%."
+}

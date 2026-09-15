@@ -1,0 +1,12 @@
+{
+  "name": "ibm_brisbane_biased",
+  "basis_gates": ["id", "rz", "x", "sx", "cx"],
+  "single_qubit_error_rate": 3.0e-4,
+  "two_qubit_error_rate": 8.0e-3,
+  "bias_eta": 10.0,
+  "readout_error": 0.02,
+  "readout_asymmetry": 1.2,
+  "t1_us": 400.0,
+  "t2_us": 110.0,
+  "description": "Strongly phase-flip-biased profile (eta=10) used to demonstrate hardware-aware code tailoring: the X-basis repetition code, which corrects Z errors, should outperform the Z-basis code at identical physical rates."
+}

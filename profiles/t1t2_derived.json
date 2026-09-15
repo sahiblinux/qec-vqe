@@ -1,0 +1,11 @@
+{
+  "name": "t1t2_derived",
+  "basis_gates": ["id", "rz", "x", "sx", "cx"],
+  "t1_us": 300.0,
+  "t2_us": 120.0,
+  "gate_time_ns": 50.0,
+  "two_qubit_error_rate": 8.0e-3,
+  "readout_error": 0.02,
+  "readout_asymmetry": 1.2,
+  "description": "Profile synthesized from coherence times only: single-qubit Pauli rates from the T1/T2 relaxation/dephasing mapping, giving a physically motivated bias eta = p_z/p_x. Populate single_qubit_error_rate/bias_eta via qec_vqe.noise_models.profile_from_t1t2 if loaded raw."
+}
