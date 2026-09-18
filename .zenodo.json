@@ -21,7 +21,7 @@
   ],
   "related_identifiers": [
     {
-      "identifier": "https://github.com/YOUR-USERNAME/qec-vqe",
+      "identifier": "https://github.com/sahiblinux/qec-vqe",
       "relation": "isSupplementTo",
       "scheme": "url",
       "resource_type": "software"

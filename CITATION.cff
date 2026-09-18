@@ -9,12 +9,12 @@ type: software
 authors:
   - given-names: Sahibjot
     family-names: Singh
-    email: sahibjot.singh@example.com   # TODO: replace with your preferred public email before pushing
+    affiliation: Independent researcher
 identifiers:
   - description: Zenodo archive DOI (add after first Zenodo release)
     type: doi
     value: "10.5281/zenodo.XXXXXXX"     # TODO: replace after Zenodo minting
-repository-code: "https://github.com/YOUR-USERNAME/qec-vqe"   # TODO: replace after GitHub push
+repository-code: "https://github.com/sahiblinux/qec-vqe"
 abstract: >-
   A tested Python framework for controlled bias-variance comparison of quantum
   error-mitigation stacks (zero-noise extrapolation, readout mitigation) and

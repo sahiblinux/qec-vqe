@@ -6,7 +6,7 @@ test, and submit changes.
 ## Setup
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/qec-vqe   # TODO: replace after push
+git clone https://github.com/sahiblinux/qec-vqe
 cd qec-vqe
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"

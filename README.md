@@ -1,7 +1,7 @@
 # qec-vqe — Hardware-Aware Quantum Error Correction & Noise Mitigation for NISQ VQE
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![CI](https://github.com/YOUR-USERNAME/qec-vqe/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR-USERNAME/qec-vqe/actions/workflows/ci.yml)
+[![CI](https://github.com/sahiblinux/qec-vqe/actions/workflows/ci.yml/badge.svg)](https://github.com/sahiblinux/qec-vqe/actions/workflows/ci.yml)
 
 A complete, tested simulation pipeline for studying how quantum error mitigation
 and error correction behave on device-calibrated noise — built around a
@@ -27,7 +27,7 @@ If you use this software, please cite it (see [Citation](#citation)).
 Requires Python 3.9+.
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/qec-vqe   # TODO: replace after push
+git clone https://github.com/sahiblinux/qec-vqe
 cd qec-vqe
 python -m venv .venv && .venv/bin/pip install -e ".[dev]"
 ```
