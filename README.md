@@ -1,7 +1,7 @@
 # qec-vqe — Hardware-Aware Quantum Error Correction & Noise Mitigation for NISQ VQE
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-49%20passing-brightgreen)]()
+[![CI](https://github.com/YOUR-USERNAME/qec-vqe/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR-USERNAME/qec-vqe/actions/workflows/ci.yml)
 
 A complete, tested simulation pipeline for studying how quantum error mitigation
 and error correction behave on device-calibrated noise — built around a

@@ -1,0 +1,30 @@
+{
+  "title": "qec-vqe: Hardware-Aware Quantum Error Correction and Noise Mitigation for NISQ-Era VQE",
+  "creators": [
+    {
+      "name": "Singh, Sahibjot",
+      "affiliation": "Independent researcher"
+    }
+  ],
+  "description": "<p>A tested Python framework (49 unit tests) for controlled bias&ndash;variance comparison of quantum error-mitigation stacks &mdash; zero-noise extrapolation (noise-rate scaling and unitary folding), readout-mitigation via calibration-matrix inversion &mdash; and repetition-code quantum error correction, in NISQ-era variational quantum eigensolver simulations. Includes H2/LiH molecular Hamiltonians, UCCSD and hardware-efficient ans&auml;tze, device-calibrated asymmetric noise models, and a fully reproducible benchmark suite regenerating all figures of the accompanying research manuscript (paper/research_paper.md) from a single command.</p>",
+  "access_right": "open",
+  "license": "mit",
+  "upload_type": "software",
+  "keywords": [
+    "quantum computing",
+    "quantum error mitigation",
+    "zero-noise extrapolation",
+    "readout mitigation",
+    "quantum error correction",
+    "variational quantum eigensolver",
+    "NISQ"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/YOUR-USERNAME/qec-vqe",
+      "relation": "isSupplementTo",
+      "scheme": "url",
+      "resource_type": "software"
+    }
+  ]
+}
