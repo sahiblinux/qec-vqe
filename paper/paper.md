@@ -105,4 +105,15 @@ experimental harness for controlled cross-estimator comparison with end-to-end
 reproducibility, plus an integrated QEC layer for mapping where EM ends and QEC
 must begin.
 
+# AI usage disclosure
+
+The author used an AI coding assistant (Codebuff, an AI agent for software
+development) during the preparation of this submission. Scope of assistance:
+scaffolding and refactoring of the `qec_vqe` package, test generation,
+implementation of benchmark drivers and figure generation, drafting and
+copy-editing of documentation, CI configuration, and assistance with manuscript
+preparation. All AI-assisted code and text were reviewed, edited, and validated
+by the author, who takes full responsibility for the content of this submission
+and for the accuracy of all reported results.
+
 # References
