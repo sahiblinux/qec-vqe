@@ -11,9 +11,9 @@ authors:
     family-names: Singh
     affiliation: Independent researcher
 identifiers:
-  - description: Zenodo archive DOI (add after first Zenodo release)
+  - description: Zenodo archive DOI for the accompanying research paper and raw benchmark data (software versioned via GitHub releases)
     type: doi
-    value: "10.5281/zenodo.XXXXXXX"     # TODO: replace after Zenodo minting
+    value: "10.5281/zenodo.23061923"
 repository-code: "https://github.com/sahiblinux/qec-vqe"
 abstract: >-
   A tested Python framework for controlled bias-variance comparison of quantum

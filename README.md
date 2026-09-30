@@ -1,6 +1,7 @@
 # qec-vqe — Hardware-Aware Quantum Error Correction & Noise Mitigation for NISQ VQE
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23061923.svg)](https://doi.org/10.5281/zenodo.23061923)
 [![CI](https://github.com/sahiblinux/qec-vqe/actions/workflows/ci.yml/badge.svg)](https://github.com/sahiblinux/qec-vqe/actions/workflows/ci.yml)
 
 A complete, tested simulation pipeline for studying how quantum error mitigation
@@ -105,10 +106,17 @@ calibrated **on the device itself**.
 
 If you use `qec-vqe` in your work, please cite:
 
+**Software**
+
 > Singh, S. (2026). *qec-vqe: A Tested Python Framework for Controlled
 > Bias–Variance Comparison of Quantum Error-Mitigation Stacks in NISQ VQE*.
 > Journal of Open Source Software (in review). DOI: *(assigned on acceptance —
-> also minted via Zenodo for the repository archive; see CITATION.cff)*.
+> see CITATION.cff).*
 
-The accompanying research paper (`paper/research_paper.md`) and all raw
-benchmark data (`out/results.json`) are archived with the repository.
+**Research paper** (bias–variance analysis behind all numbers above)
+
+> Singh, S. (2026). *When Does Zero-Noise Extrapolation Help? A Controlled
+> Bias–Variance Analysis of Error Mitigation for Variational Quantum
+> Chemistry*. Zenodo. https://doi.org/10.5281/zenodo.23061923
+
+Raw benchmark data (`out/results.json`) is archived with the paper on Zenodo.
